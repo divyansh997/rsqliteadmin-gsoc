@@ -1,0 +1,83 @@
+---
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+## Easy - Creating SQLite Database and populating dummy data from csv files
+
+The database is named university.db and contains two tables, namely "Students" and "Enrolled".
+Students has a list of students with their roll numbers and names.
+Enrolled has a row for every course a student is enrolled in.
+```{r}
+library(RSQLite)
+conn<-dbConnect(RSQLite::SQLite(), 'university.db')
+students<- read.csv('Student.csv')
+enrolled<- read.csv('Enrolled.csv')
+dbWriteTable(conn, "Students", students, fileEncoding = "UTF-8")
+dbWriteTable(conn, "Enrolled", enrolled, fileEncoding = "UTF-8")
+dbListTables(conn)
+```
+A glimpse at the tables:
+```{r}
+tail(students, 10)
+```
+```{r}
+tail(enrolled, 5)
+```
+## Medium - Insert function to insert values into a table
+This function works similarly to part 1. It generates partial queries and combines them together finally in the variable "result_query".
+
+```{r}
+insert <- function(conn = NULL,
+                           insert_table = NULL, # table name into which values are to be inserted
+                           insert_vector = NULL, # column names(vectors) into which values
+                                                 # should be inserted
+                           insert_values = NULL # values(vector) which are to be inserted
+){
+  insert_query<- "INSERT INTO "
+  value_query<- "VALUES "
+  result_query<- ""
+  insert_query<- paste(insert_query, insert_table[1], " ", sep = "")
+  if(!is.null(insert_vector)){
+    insert_query<- paste(insert_query, "(", sep = "")
+    for(i in 1:length(insert_vector)){
+      if(i!=length(insert_vector))
+        insert_query<- paste(insert_query, insert_vector[i], ", ", sep = "")
+      else
+        insert_query<- paste(insert_query, insert_vector[i], ") ", sep = "")
+    }
+  }
+  
+  value_query<- paste(value_query, "(", sep = "")
+  for(i in 1:length(insert_values)){
+    if(i!=length(insert_values))
+      value_query<- paste(value_query, "'", insert_values[i], "'", ", ", sep = "")
+    else
+      value_query<- paste(value_query, "'", insert_values[i], "'", ");", sep = "")
+  }
+  result_query<- paste(insert_query, value_query, sep = "\n")
+  cat(paste("The resulting query created is:", result_query, sep = "\n"))
+  dbExecute(conn, result_query)
+}
+```
+
+## Example for inserting a row
+
+Defining the parameters - 
+```{r}
+insert_table<- c('Students')
+insert_vector<-  c('roll_no', 'name')
+insert_values<- c(12, 'abcd1234')
+```
+Executing the query - 
+```{r}
+insert(conn = conn, 
+               insert_table = insert_table, 
+               insert_vector = insert_vector, 
+               insert_values = insert_values)
+```
+Results - 
+```{r}
+tail(dbGetQuery(conn, "select * from Students"), 10)
+```
